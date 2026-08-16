@@ -281,6 +281,7 @@
     .starter-chip { display: flex; align-items: center; gap: 6px; background: rgba(124,110,247,0.08); border: 1px solid rgba(124,110,247,0.25); border-radius: 99px; padding: 7px 14px; font-size: 0.8rem; font-weight: 600; color: var(--text); cursor: pointer; transition: background 0.15s, transform 0.1s; }
     .starter-chip:hover { background: rgba(124,110,247,0.16); transform: translateY(-1px); }
     .starter-chip:active { transform: scale(0.96); }
+    .starter-short { display: none; }
 
     /* ─── Celebration ─── */
     @keyframes ringCelebrate { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 65% { transform: scale(0.96); } 100% { transform: scale(1); } }
@@ -313,6 +314,9 @@
       .icon-btn { padding: 9px; }
       .habit-check { width: 28px; height: 28px; }
       .modal-card { padding: 20px; }
+      .starter-chip:nth-of-type(n+3) { display: none; }
+      .starter-full { display: none; }
+      .starter-short { display: inline; }
     }
 
     /* ─── Auth ─── */
@@ -1014,11 +1018,11 @@
   // A few low-effort, relatable starting points so a brand-new (and maybe
   // non-technical) friend or family member isn't stuck staring at a blank form.
   const STARTER_HABITS = [
-    { emoji: '💧', name: 'Drink water',    freq: 7 },
-    { emoji: '🚶', name: 'Walk 10 min',    freq: 7 },
-    { emoji: '📞', name: 'Call someone',   freq: 2 },
-    { emoji: '📖', name: 'Read a page',    freq: 7 },
-    { emoji: '🧘', name: 'Take a breath',  freq: 7 },
+    { emoji: '💧', name: 'Drink water',    short: 'Water',   freq: 7 },
+    { emoji: '🚶', name: 'Walk 10 min',    short: 'Walk',    freq: 7 },
+    { emoji: '📞', name: 'Call someone',   short: 'Call',    freq: 2 },
+    { emoji: '📖', name: 'Read a page',    short: 'Read',    freq: 7 },
+    { emoji: '🧘', name: 'Take a breath',  short: 'Breathe', freq: 7 },
   ];
   function addStarterHabit(i) {
     const s = STARTER_HABITS[i];
@@ -1225,7 +1229,7 @@
     if (!el) return;
     if (getHabits().length > 0) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="starter-chips-label">New here? Try one of these:</div>` +
-      STARTER_HABITS.map((s,i) => `<button type="button" class="starter-chip" onclick="addStarterHabit(${i})">${s.emoji} ${escHtml(s.name)}</button>`).join('');
+      STARTER_HABITS.map((s,i) => `<button type="button" class="starter-chip" onclick="addStarterHabit(${i})">${s.emoji} <span class="starter-full">${escHtml(s.name)}</span><span class="starter-short">${escHtml(s.short)}</span></button>`).join('');
   }
 
   // Weekly-pace concepts (badges, dots, this legend section) only matter once
