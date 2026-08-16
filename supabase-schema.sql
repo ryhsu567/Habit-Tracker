@@ -9,12 +9,15 @@ create table if not exists habits (
   name         text not null,
   tag          text,
   freq         integer not null default 7,
+  icon         text,                          -- optional emoji shown next to the habit name
   position     integer not null default 0,     -- manual drag-reorder position
   paused_from  date,
   paused_until date,
   created_at   timestamptz not null default now()
 );
 create index if not exists habits_user_id_idx on habits(user_id);
+-- Safe to re-run on an existing table that predates the icon column:
+alter table habits add column if not exists icon text;
 
 -- ─── Completions (one row per habit per day it was done) ───────────────
 create table if not exists completions (

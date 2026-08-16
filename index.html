@@ -299,6 +299,10 @@
     .auth-name-row { display: flex; gap: 8px; }
     .auth-name-row.hidden { display: none; }
     .auth-name-row .auth-input { flex: 1; }
+    .auth-forgot-row { text-align: right; margin-top: -8px; }
+    .auth-forgot-row.hidden { display: none; }
+    .auth-forgot-link { background: none; border: none; color: var(--text-muted); font-size: 0.76rem; cursor: pointer; padding: 4px 0; }
+    .auth-forgot-link:hover { color: var(--accent, #7c6ef7); text-decoration: underline; }
     #app-shell { display: none; }
     #app-shell.visible { display: block; }
     .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; max-width: 360px; width: 100%; backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass); text-align: center; }
@@ -333,9 +337,24 @@
     <input type="email" id="auth-email" class="auth-input" placeholder="Email" autocomplete="email" aria-label="Email"/>
     <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password" aria-label="Password"
       onkeydown="if(event.key==='Enter')handleAuthSubmit()"/>
+    <div class="auth-forgot-row" id="auth-forgot-row">
+      <button type="button" class="auth-forgot-link" onclick="sendPasswordReset()">Forgot password?</button>
+    </div>
     <button class="btn" id="auth-submit" style="width:100%;" onclick="handleAuthSubmit()">Sign In</button>
     <div class="auth-error" id="auth-error"></div>
     <div class="auth-note" id="auth-note"></div>
+  </div>
+</div>
+
+<div class="auth-screen hidden" id="recovery-screen">
+  <div class="auth-card">
+    <div class="header-title" style="font-size:1.7rem;">Set a new password</div>
+    <div class="header-sub">Choose a new password for your account</div>
+    <input type="password" id="recovery-password" class="auth-input" placeholder="New password" autocomplete="new-password" aria-label="New password"/>
+    <input type="password" id="recovery-password-confirm" class="auth-input" placeholder="Confirm new password" autocomplete="new-password" aria-label="Confirm new password"
+      onkeydown="if(event.key==='Enter')setNewPassword()"/>
+    <button class="btn" style="width:100%;" onclick="setNewPassword()">Set new password</button>
+    <div class="auth-error" id="recovery-error"></div>
   </div>
 </div>
 
@@ -370,6 +389,10 @@
       <button class="btn" onclick="addHabit()">Add</button>
     </div>
     <div class="add-options">
+      <div class="add-opt">
+        <span class="opt-label">Icon</span>
+        <select id="icon-select" aria-label="Icon"></select>
+      </div>
       <div class="add-opt">
         <span class="opt-label">Tag</span>
         <input type="text" id="tag-input" list="tag-datalist" placeholder="Health, Work…" maxlength="20" autocomplete="off" aria-label="Tag"/>
@@ -550,6 +573,12 @@
   // ─── Constants ───────────────────────────────────────────────────────────
   const TAG_PALETTE = ['#f472b6','#60a5fa','#a78bfa','#34d399','#fbbf24','#fb923c','#e879f9','#38bdf8','#a3e635','#f97316'];
   const WEEK_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const ICON_CHOICES = ['🎯','💧','🚶','🏃','🏋️','🧘','📖','✍️','🎨','🎵','💤','🥗','📵','💊','📞','🧹','💻','☀️','🙏','❤️'];
+  function iconOptionsHtml(selected) {
+    const opts = ['<option value="">No icon</option>']
+      .concat(ICON_CHOICES.map(e => `<option value="${e}" ${selected===e?'selected':''}>${e}</option>`));
+    return opts.join('');
+  }
 
   // ─── State ───────────────────────────────────────────────────────────────
   let calYear  = new Date().getFullYear();
@@ -617,7 +646,7 @@
     try {
       if (habits.length) {
         const rows = habits.map((h, i) => ({
-          id: h.id, user_id: uid, name: h.name, tag: h.tag || null, freq: h.freq || 7,
+          id: h.id, user_id: uid, name: h.name, tag: h.tag || null, freq: h.freq || 7, icon: h.icon || null,
           position: i, paused_from: h.pausedFrom || null, paused_until: h.pausedUntil || null,
           created_at: h.createdAt ? new Date(h.createdAt).toISOString() : new Date().toISOString(),
         }));
@@ -680,7 +709,7 @@
     if (notesRes.error)  console.error(notesRes.error);
 
     _cache.habits = (habitsRes.data||[]).map(r => ({
-      id: r.id, name: r.name, tag: r.tag, freq: r.freq,
+      id: r.id, name: r.name, tag: r.tag, freq: r.freq, icon: r.icon || null,
       createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
       pausedFrom: r.paused_from || undefined, pausedUntil: r.paused_until || undefined,
     }));
@@ -702,6 +731,7 @@
     document.getElementById('auth-tab-up').classList.toggle('active', mode === 'up');
     document.getElementById('auth-submit').textContent = mode === 'in' ? 'Sign In' : 'Sign Up';
     document.getElementById('auth-name-row').classList.toggle('hidden', mode !== 'up');
+    document.getElementById('auth-forgot-row').classList.toggle('hidden', mode !== 'in');
     document.getElementById('auth-error').textContent = '';
     document.getElementById('auth-note').textContent = '';
   }
@@ -741,11 +771,57 @@
     if (sb) await sb.auth.signOut();
   }
 
+  // ─── Forgot password ─────────────────────────────────────────────────────
+  async function sendPasswordReset() {
+    const email = document.getElementById('auth-email').value.trim();
+    const errEl = document.getElementById('auth-error');
+    const noteEl = document.getElementById('auth-note');
+    errEl.textContent = ''; noteEl.textContent = '';
+    if (!email) { errEl.textContent = 'Enter your email above first, then click "Forgot password?".'; return; }
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+      if (error) throw error;
+      noteEl.textContent = 'Check your email for a password reset link.';
+    } catch (e) {
+      errEl.textContent = e.message || 'Something went wrong.';
+    }
+  }
+
+  async function setNewPassword() {
+    const pw1 = document.getElementById('recovery-password').value;
+    const pw2 = document.getElementById('recovery-password-confirm').value;
+    const errEl = document.getElementById('recovery-error');
+    errEl.textContent = '';
+    if (!pw1 || pw1.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+    if (pw1 !== pw2) { errEl.textContent = 'Passwords don’t match.'; return; }
+    try {
+      const { data, error } = await sb.auth.updateUser({ password: pw1 });
+      if (error) throw error;
+      currentUser = data.user;
+      updateGreeting();
+      document.getElementById('recovery-screen').classList.add('hidden');
+      document.getElementById('app-shell').classList.add('visible');
+      await loadAllFromServer();
+      render();
+    } catch (e) {
+      errEl.textContent = e.message || 'Something went wrong.';
+    }
+  }
+
   // ─── Profile ─────────────────────────────────────────────────────────────
+  function timeOfDayGreeting() {
+    const h = new Date().getHours();
+    if (h < 5)  return 'Good night';
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    if (h < 21) return 'Good evening';
+    return 'Good night';
+  }
+
   function updateGreeting() {
     const firstName = currentUser && currentUser.user_metadata && currentUser.user_metadata.first_name;
     document.getElementById('app-greeting').textContent =
-      firstName ? `Welcome back, ${firstName}` : 'Build your best self, one day at a time';
+      firstName ? `${timeOfDayGreeting()}, ${firstName}` : 'Build your best self, one day at a time';
   }
 
   function openProfileModal() {
@@ -899,14 +975,16 @@
     const nameEl = document.getElementById('habit-input');
     const tagEl  = document.getElementById('tag-input');
     const freqEl = document.getElementById('freq-select');
+    const iconEl = document.getElementById('icon-select');
     const name = nameEl.value.trim(); if (!name) return;
     const tag  = tagEl.value.trim() || null;
     const freq = parseInt(freqEl.value, 10);
+    const icon = iconEl.value || null;
     if (tag) getOrCreateTagColor(tag);
     const habits = getHabits();
-    habits.push({ id: uid(), name, tag, freq, createdAt: Date.now() });
+    habits.push({ id: uid(), name, tag, freq, icon, createdAt: Date.now() });
     saveHabits(habits);
-    nameEl.value = ''; tagEl.value = ''; freqEl.value = '7';
+    nameEl.value = ''; tagEl.value = ''; freqEl.value = '7'; iconEl.value = '';
     updateTagDatalist(); render();
   }
 
@@ -922,7 +1000,7 @@
   function addStarterHabit(i) {
     const s = STARTER_HABITS[i];
     const habits = getHabits();
-    habits.push({ id: uid(), name: s.name, tag: null, freq: s.freq, createdAt: Date.now() });
+    habits.push({ id: uid(), name: s.name, tag: null, freq: s.freq, icon: s.emoji, createdAt: Date.now() });
     saveHabits(habits); render();
   }
 
@@ -995,11 +1073,12 @@
     const nameVal = document.getElementById(`en-${id}`).value.trim();
     const tagVal  = document.getElementById(`et-${id}`).value.trim() || null;
     const freqVal = parseInt(document.getElementById(`ef-${id}`).value, 10);
+    const iconVal = document.getElementById(`ei-${id}`).value || null;
     if (!nameVal) return;
     if (tagVal) getOrCreateTagColor(tagVal);
     const habits = getHabits();
     const h = habits.find(x => x.id === id);
-    if (h) { h.name = nameVal; h.tag = tagVal; h.freq = freqVal; }
+    if (h) { h.name = nameVal; h.tag = tagVal; h.freq = freqVal; h.icon = iconVal; }
     saveHabits(habits); editingId = null;
     updateTagDatalist(); render();
   }
@@ -1053,7 +1132,7 @@
           onclick="toggleInModal('${h.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleInModal('${h.id}')}">
         <div class="modal-habit-icon">${isDoneRow?'✓':'✗'}</div>
         ${color ? `<div class="modal-tag-dot" style="background:${color}"></div>` : ''}
-        <div class="modal-habit-name">${escHtml(h.name)}</div>
+        <div class="modal-habit-name">${h.icon?`<span class="habit-icon">${h.icon}</span> `:''}${escHtml(h.name)}</div>
         ${h.freq&&h.freq<7 ? `<div class="freq-badge">${h.freq}×/wk</div>` : ''}
         <button class="icon-btn edit-btn mh-edit-btn" onclick="editFromModal(event,'${h.id}')" title="Edit habit" aria-label="Edit ${escHtml(h.name)}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1174,6 +1253,10 @@
             </div>
             <div class="edit-sub-row">
               <div class="edit-field">
+                <span class="opt-label">Icon</span>
+                <select id="ei-${h.id}" aria-label="Icon">${iconOptionsHtml(h.icon||'')}</select>
+              </div>
+              <div class="edit-field">
                 <span class="opt-label">Tag</span>
                 <input id="et-${h.id}" list="tag-datalist-edit" value="${escHtml(h.tag||'')}" placeholder="None" maxlength="20" autocomplete="off" aria-label="Tag"/>
                 <datalist id="tag-datalist-edit" class="tag-datalist-target"></datalist>
@@ -1227,7 +1310,7 @@
             ${color ? `<div class="tag-dot" style="background:${color}"></div>` : ''}
             <div class="habit-check paused-check" aria-hidden="true">☾</div>
             <div class="habit-info">
-              <div class="habit-name">${escHtml(h.name)}</div>
+              <div class="habit-name">${h.icon?`<span class="habit-icon">${h.icon}</span> `:''}${escHtml(h.name)}</div>
               <div class="habit-meta"><div class="paused-badge">😴 Paused until ${resumeLabel}</div></div>
             </div>
             <button type="button" class="resume-link" onclick="resumeHabit('${h.id}')">Resume now</button>
@@ -1282,7 +1365,7 @@
             </svg>
           </button>
           <div class="habit-info">
-            <div class="habit-name">${escHtml(h.name)}</div>
+            <div class="habit-name">${h.icon?`<span class="habit-icon">${h.icon}</span> `:''}${escHtml(h.name)}</div>
             ${freqBadge||weekBadge ? `<div class="habit-meta">${freqBadge}${weekBadge}</div>` : ''}
           </div>
           ${streakHtml}
@@ -1478,6 +1561,7 @@
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   document.getElementById('habit-input').addEventListener('keydown', e => { if (e.key==='Enter') addHabit(); });
+  document.getElementById('icon-select').innerHTML = iconOptionsHtml('');
 
   // ─── Boot ────────────────────────────────────────────────────────────────
   // Data now lives in Supabase, tied to whoever's signed in — render() only
@@ -1488,9 +1572,19 @@
   } else {
     sb.auth.onAuthStateChange(async (event, session) => {
       document.getElementById('boot-loading').style.display = 'none';
+      if (event === 'PASSWORD_RECOVERY') {
+        // Landed here from a reset-password email link — hold off on loading
+        // the app until they've actually set a new password.
+        currentUser = session.user;
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-shell').classList.remove('visible');
+        document.getElementById('recovery-screen').classList.remove('hidden');
+        return;
+      }
       if (session && session.user) {
         currentUser = session.user;
         updateGreeting();
+        document.getElementById('recovery-screen').classList.add('hidden');
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-shell').classList.add('visible');
         await loadAllFromServer();
@@ -1498,6 +1592,7 @@
       } else {
         currentUser = null;
         document.getElementById('app-shell').classList.remove('visible');
+        document.getElementById('recovery-screen').classList.add('hidden');
         document.getElementById('auth-screen').classList.remove('hidden');
       }
     });
