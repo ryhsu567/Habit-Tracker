@@ -292,6 +292,29 @@
       .confetti-piece { display: none; }
     }
 
+    /* ─── Touch devices: icon buttons (edit/pause/delete/reorder/drag) are
+       normally invisible until :hover — but touch has no hover, so they'd
+       stay invisible forever. Show them permanently instead. ─── */
+    @media (hover: none) {
+      .icon-btn, .drag-handle { color: var(--text-muted); }
+    }
+
+    /* ─── Small screens ─── */
+    @media (max-width: 600px) {
+      body { padding: 20px 12px 90px; }
+      header { margin-bottom: 24px; flex-wrap: wrap; gap: 10px; }
+      .header-title { font-size: 1.7rem; }
+      .date-pill { padding: 6px 12px; font-size: 0.72rem; }
+      .card { padding: 16px 14px; }
+      .add-options { flex-direction: column; }
+      .add-opt { min-width: 0; }
+      .productivity-layout { flex-direction: column; text-align: center; gap: 14px; }
+      .prod-info { width: 100%; }
+      .icon-btn { padding: 9px; }
+      .habit-check { width: 28px; height: 28px; }
+      .modal-card { padding: 20px; }
+    }
+
     /* ─── Auth ─── */
     #boot-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px; line-height: 1.6; }
     .auth-screen { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); }
