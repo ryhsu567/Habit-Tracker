@@ -296,6 +296,9 @@
     #boot-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 20px; line-height: 1.6; }
     .auth-screen { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--bg); }
     .auth-screen.hidden { display: none; }
+    .auth-name-row { display: flex; gap: 8px; }
+    .auth-name-row.hidden { display: none; }
+    .auth-name-row .auth-input { flex: 1; }
     #app-shell { display: none; }
     #app-shell.visible { display: block; }
     .auth-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; max-width: 360px; width: 100%; backdrop-filter: var(--glass); -webkit-backdrop-filter: var(--glass); text-align: center; }
@@ -323,6 +326,10 @@
       <button class="auth-tab active" id="auth-tab-in" onclick="setAuthMode('in')">Sign In</button>
       <button class="auth-tab" id="auth-tab-up" onclick="setAuthMode('up')">Sign Up</button>
     </div>
+    <div class="auth-name-row hidden" id="auth-name-row">
+      <input type="text" id="auth-firstname" class="auth-input" placeholder="First name" autocomplete="given-name" aria-label="First name"/>
+      <input type="text" id="auth-lastname" class="auth-input" placeholder="Last name" autocomplete="family-name" aria-label="Last name"/>
+    </div>
     <input type="email" id="auth-email" class="auth-input" placeholder="Email" autocomplete="email" aria-label="Email"/>
     <input type="password" id="auth-password" class="auth-input" placeholder="Password" autocomplete="current-password" aria-label="Password"
       onkeydown="if(event.key==='Enter')handleAuthSubmit()"/>
@@ -337,7 +344,7 @@
 <header>
   <div>
     <div class="header-title">Habit Tracker</div>
-    <div class="header-sub">Build your best self, one day at a time</div>
+    <div class="header-sub" id="app-greeting">Build your best self, one day at a time</div>
   </div>
   <div class="header-actions">
     <div class="date-pill" id="header-date"></div>
@@ -675,6 +682,7 @@
     document.getElementById('auth-tab-in').classList.toggle('active', mode === 'in');
     document.getElementById('auth-tab-up').classList.toggle('active', mode === 'up');
     document.getElementById('auth-submit').textContent = mode === 'in' ? 'Sign In' : 'Sign Up';
+    document.getElementById('auth-name-row').classList.toggle('hidden', mode !== 'up');
     document.getElementById('auth-error').textContent = '';
     document.getElementById('auth-note').textContent = '';
   }
@@ -682,10 +690,13 @@
   async function handleAuthSubmit() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
+    const firstName = document.getElementById('auth-firstname').value.trim();
+    const lastName = document.getElementById('auth-lastname').value.trim();
     const errEl = document.getElementById('auth-error');
     const noteEl = document.getElementById('auth-note');
     errEl.textContent = ''; noteEl.textContent = '';
     if (!email || !password) { errEl.textContent = 'Enter an email and password.'; return; }
+    if (authMode === 'up' && (!firstName || !lastName)) { errEl.textContent = 'Enter your first and last name.'; return; }
     const submitBtn = document.getElementById('auth-submit');
     submitBtn.disabled = true;
     try {
@@ -693,7 +704,10 @@
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        const { error } = await sb.auth.signUp({ email, password });
+        const { error } = await sb.auth.signUp({
+          email, password,
+          options: { data: { first_name: firstName, last_name: lastName } }
+        });
         if (error) throw error;
         noteEl.textContent = 'Check your email to confirm your account, then sign in.';
       }
@@ -1420,6 +1434,9 @@
       document.getElementById('boot-loading').style.display = 'none';
       if (session && session.user) {
         currentUser = session.user;
+        const firstName = currentUser.user_metadata && currentUser.user_metadata.first_name;
+        document.getElementById('app-greeting').textContent =
+          firstName ? `Welcome back, ${firstName}` : 'Build your best self, one day at a time';
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-shell').classList.add('visible');
         await loadAllFromServer();
