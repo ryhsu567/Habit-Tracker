@@ -600,7 +600,7 @@
   // ─── Constants ───────────────────────────────────────────────────────────
   const TAG_PALETTE = ['#f472b6','#60a5fa','#a78bfa','#34d399','#fbbf24','#fb923c','#e879f9','#38bdf8','#a3e635','#f97316'];
   const WEEK_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const ICON_CHOICES = ['🎯','💧','🚶','🏃','🏋️','🧘','📖','✍️','🎨','🎵','💤','🥗','🍖','📵','💊','📞','🧹','💻','☀️','🙏','❤️'];
+  const ICON_CHOICES = ['🎯','💧','🚶','🏃','🏋️','🧘','📖','✍️','🎨','🎵','💤','🥗','🥩','📵','💊','📞','🧹','💻','☀️','🙏','❤️'];
   function iconOptionsHtml(selected) {
     const opts = ['<option value="">No icon</option>']
       .concat(ICON_CHOICES.map(e => `<option value="${e}" ${selected===e?'selected':''}>${e}</option>`));
